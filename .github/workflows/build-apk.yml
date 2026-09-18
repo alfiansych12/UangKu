@@ -25,6 +25,9 @@ jobs:
 
       - name: Prepare Secrets and Environment
         shell: bash
+        env:
+          GOOGLE_WEB_CLIENT_ID: ${{ secrets.GOOGLE_WEB_CLIENT_ID }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           set -euo pipefail
 
@@ -56,9 +59,18 @@ jobs:
           JSON
           fi
 
-          # 2. Provide .env from .env.example if missing
-          if [ ! -f ".env" ] && [ -f ".env.example" ]; then
+          # 2. Provide .env from secrets and fallback to .env.example
+          if [ -f ".env.example" ]; then
             cp .env.example .env
+          else
+            touch .env
+          fi
+
+          if [ -n "${GOOGLE_WEB_CLIENT_ID:-}" ]; then
+            echo "GOOGLE_WEB_CLIENT_ID=${GOOGLE_WEB_CLIENT_ID}" >> .env
+          fi
+          if [ -n "${GEMINI_API_KEY:-}" ]; then
+            echo "GEMINI_API_KEY=${GEMINI_API_KEY}" >> .env
           fi
 
           # 3. Decode debug.keystore if base64 file exists, or generate via keytool
@@ -80,6 +92,11 @@ jobs:
           fi
 
           test -f debug.keystore
+
+          echo "=========================================="
+          echo "Debug Keystore SHA-1 Fingerprint:"
+          keytool -list -v -keystore debug.keystore -alias androiddebugkey -storepass android -keypass android | grep "SHA1:" || true
+          echo "=========================================="
 
       - name: Ensure Gradle Wrapper Executable
         shell: bash
