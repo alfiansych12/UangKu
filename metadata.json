@@ -1,0 +1,6 @@
+{
+  "name": "UangKu",
+  "description": "Aplikasi Money Tracker dan OCR Receipt Scanner modern untuk mencatat pengeluaran, pemasukan, anggaran, dompet, dan target tabungan.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
