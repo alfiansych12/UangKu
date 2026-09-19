@@ -385,6 +385,9 @@ fun UangKuApp(viewModel: UangKuViewModel) {
                             onRestoreFromJson = { json, callback ->
                                 viewModel.restoreFromJsonString(json, callback)
                             },
+                            onResetAllData = { callback ->
+                                viewModel.resetToFreshState(callback)
+                            },
                             initialTab = moreSubTab
                         )
                     }

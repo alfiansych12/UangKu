@@ -74,6 +74,7 @@ fun MoreHubScreen(
     onRestoreFromCloud: ((Boolean, String) -> Unit) -> Unit,
     onExportBackupJson: suspend (Context) -> Uri?,
     onRestoreFromJson: (String, (Boolean, String) -> Unit) -> Unit,
+    onResetAllData: ((Boolean, String) -> Unit) -> Unit = {},
     initialTab: Int = 0,
     modifier: Modifier = Modifier
 ) {
@@ -167,7 +168,8 @@ fun MoreHubScreen(
                 onTriggerManualBackup = onTriggerManualBackup,
                 onRestoreFromCloud = onRestoreFromCloud,
                 onExportBackupJson = onExportBackupJson,
-                onRestoreFromJson = onRestoreFromJson
+                onRestoreFromJson = onRestoreFromJson,
+                onResetAllData = onResetAllData
             )
         }
     }

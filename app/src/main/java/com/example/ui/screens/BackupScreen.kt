@@ -22,10 +22,13 @@ import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.CloudUpload
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.FileUpload
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -86,12 +89,14 @@ fun BackupScreen(
     onRestoreFromCloud: ((Boolean, String) -> Unit) -> Unit,
     onExportBackupJson: suspend (Context) -> android.net.Uri?,
     onRestoreFromJson: (String, (Boolean, String) -> Unit) -> Unit,
+    onResetAllData: ((Boolean, String) -> Unit) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
     var showCloudRestoreConfirm by remember { mutableStateOf(false) }
+    var showResetConfirmDialog by remember { mutableStateOf(false) }
     var showJsonInputDialog by remember { mutableStateOf(false) }
     var jsonInputText by remember { mutableStateOf("") }
 
@@ -468,6 +473,50 @@ fun BackupScreen(
             }
         }
 
+        // Danger Zone: Reset Data
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f)),
+            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.3f))
+        ) {
+            Column(modifier = Modifier.padding(18.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Reset Seluruh Data Aplikasi",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "Menghapus semua riwayat transaksi, target tabungan, anggaran, dan mengembalikan saldo dompet ke Rp 0 (Kondisi Baru).",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Button(
+                    onClick = { showResetConfirmDialog = true },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(imageVector = Icons.Default.Refresh, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Hapus Semua Data & Mulai dari Nol")
+                }
+            }
+        }
+
         // Security Info Banner
         Row(
             modifier = Modifier
@@ -563,6 +612,42 @@ fun BackupScreen(
                     showJsonInputDialog = false
                     jsonInputText = ""
                 }) {
+                    Text("Batal")
+                }
+            }
+        )
+    }
+
+    // Reset Data Confirmation Dialog
+    if (showResetConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showResetConfirmDialog = false },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.Warning,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error
+                )
+            },
+            title = { Text("Hapus & Reset Semua Data?") },
+            text = {
+                Text("Semua data transaksi, dompet, target tabungan, dan anggaran akan dihapus bersih. Aplikasi akan kembali ke status baru (kosong). Tindakan ini tidak dapat dibatalkan.")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showResetConfirmDialog = false
+                        onResetAllData { success, msg ->
+                            Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Ya, Bersihkan Semua")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showResetConfirmDialog = false }) {
                     Text("Batal")
                 }
             }

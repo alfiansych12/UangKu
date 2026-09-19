@@ -770,6 +770,17 @@ class UangKuViewModel(
         }
     }
 
+    fun resetToFreshState(onResult: (Boolean, String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                repository.resetToFreshDatabase()
+                onResult(true, "Aplikasi telah di-reset ke kondisi kosong (fresh)!")
+            } catch (e: Exception) {
+                onResult(false, "Gagal mereset data: ${e.localizedMessage}")
+            }
+        }
+    }
+
     // Wallet Transfer
     fun transferWallet(
         fromWalletId: Long,

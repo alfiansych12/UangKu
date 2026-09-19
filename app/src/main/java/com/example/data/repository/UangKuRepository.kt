@@ -320,6 +320,18 @@ class UangKuRepository(private val dao: AppDao) {
         dao.insertNotifications(backupData.notifications)
     }
 
+    suspend fun resetToFreshDatabase() {
+        dao.clearAllTransactions()
+        dao.clearAllWallets()
+        dao.clearAllCategories()
+        dao.clearAllBudgets()
+        dao.clearAllRecurring()
+        dao.clearAllSavingsGoals()
+        dao.clearAllEditHistory()
+        dao.clearAllNotifications()
+        AppDatabase.populateInitialData(dao)
+    }
+
     suspend fun ensureDefaultDataSeeded() {
         if (dao.getCategoryCount() == 0) {
             AppDatabase.populateInitialData(dao)
