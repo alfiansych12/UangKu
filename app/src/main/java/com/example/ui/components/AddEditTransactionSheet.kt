@@ -68,11 +68,21 @@ import com.example.ui.theme.TransferBlue
 import com.example.ui.util.Formatters
 import java.io.File
 
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.MenuAnchorType
+import androidx.compose.material3.SheetValue
+import androidx.compose.material3.TextButton
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddEditTransactionSheet(
     categories: List<CategoryEntity>,
     wallets: List<WalletEntity>,
+    previousTitles: List<String> = emptyList(),
     initialReceiptData: ParsedReceipt? = null,
     existingTransaction: com.example.data.local.TransactionWithDetails? = null,
     onSave: (
@@ -91,7 +101,15 @@ fun AddEditTransactionSheet(
     ) -> Unit,
     onDismiss: () -> Unit
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    // Prevent accidental swipe dismissal so data entered is never lost
+    val sheetState = rememberModalBottomSheetState(
+        skipPartiallyExpanded = true,
+        confirmValueChange = { newState ->
+            newState != SheetValue.Hidden
+        }
+    )
+
+    var showCancelConfirmDialog by remember { mutableStateOf(false) }
 
     var transactionType by remember {
         mutableStateOf(
@@ -200,7 +218,16 @@ fun AddEditTransactionSheet(
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                IconButton(onClick = onDismiss) {
+                IconButton(
+                    onClick = {
+                        val hasUnsavedChanges = amountText.isNotBlank() || titleText.isNotBlank() || notesText.isNotBlank()
+                        if (hasUnsavedChanges && existingTransaction == null) {
+                            showCancelConfirmDialog = true
+                        } else {
+                            onDismiss()
+                        }
+                    }
+                ) {
                     Icon(imageVector = Icons.Default.Close, contentDescription = "Tutup")
                 }
             }
@@ -279,18 +306,80 @@ fun AddEditTransactionSheet(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Title / Judul Transaksi
-            OutlinedTextField(
-                value = titleText,
-                onValueChange = { titleText = it },
-                label = { Text(if (transactionType == "TRANSFER") "Keterangan Transfer" else "Judul Transaksi / Nama Toko") },
-                placeholder = { Text("Contoh: Makan Siang, Bensin, Gaji") },
-                singleLine = true,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("input_transaction_title"),
-                shape = RoundedCornerShape(12.dp)
-            )
+            // Title / Judul Transaksi with Smart Autocomplete Suggestions
+            var expandedSuggestions by remember { mutableStateOf(false) }
+            val matchingSuggestions = remember(titleText, previousTitles) {
+                if (titleText.trim().isNotEmpty()) {
+                    previousTitles
+                        .filter {
+                            it.contains(titleText.trim(), ignoreCase = true) &&
+                            !it.equals(titleText.trim(), ignoreCase = true)
+                        }
+                        .distinct()
+                        .take(6)
+                } else {
+                    emptyList()
+                }
+            }
+
+            ExposedDropdownMenuBox(
+                expanded = expandedSuggestions && matchingSuggestions.isNotEmpty(),
+                onExpandedChange = { expandedSuggestions = it },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                OutlinedTextField(
+                    value = titleText,
+                    onValueChange = {
+                        titleText = it
+                        expandedSuggestions = it.trim().isNotEmpty()
+                    },
+                    label = { Text(if (transactionType == "TRANSFER") "Keterangan Transfer" else "Judul / Keterangan Transaksi") },
+                    placeholder = { Text("Ketik kata kunci: Gaji, Makan, Bensin...") },
+                    singleLine = true,
+                    modifier = Modifier
+                        .menuAnchor(MenuAnchorType.PrimaryEditable, true)
+                        .fillMaxWidth()
+                        .testTag("input_transaction_title"),
+                    shape = RoundedCornerShape(12.dp)
+                )
+
+                if (matchingSuggestions.isNotEmpty()) {
+                    ExposedDropdownMenu(
+                        expanded = expandedSuggestions,
+                        onDismissRequest = { expandedSuggestions = false },
+                        modifier = Modifier.background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                    ) {
+                        matchingSuggestions.forEach { suggestion ->
+                            DropdownMenuItem(
+                                text = {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.History,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(10.dp))
+                                        Text(
+                                            text = suggestion,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.Medium,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
+                                },
+                                onClick = {
+                                    titleText = suggestion
+                                    expandedSuggestions = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
 
             // Category selector (Hidden for Transfer)
             if (transactionType != "TRANSFER") {
@@ -524,5 +613,28 @@ fun AddEditTransactionSheet(
                 )
             }
         }
+    }
+
+    if (showCancelConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showCancelConfirmDialog = false },
+            title = { Text("Tutup Formulir?") },
+            text = { Text("Data yang sedang Anda tulis belum disimpan. Apakah Anda yakin ingin keluar?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showCancelConfirmDialog = false
+                        onDismiss()
+                    }
+                ) {
+                    Text("Ya, Keluar", color = ExpenseRed)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCancelConfirmDialog = false }) {
+                    Text("Lanjutkan Menulis")
+                }
+            }
+        )
     }
 }

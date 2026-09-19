@@ -1,9 +1,15 @@
 package com.example.ui
 
 import android.os.Build
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -11,10 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.BarChart
-import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.PieChart
 import androidx.compose.material.icons.filled.PriceCheck
 import androidx.compose.material3.AlertDialog
@@ -30,7 +33,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -43,15 +45,23 @@ import com.example.data.auth.AuthState
 import com.example.data.local.TransactionWithDetails
 import com.example.network.ParsedReceipt
 import com.example.ui.components.AddEditTransactionSheet
+import com.example.ui.components.AppMenuSheet
+import com.example.ui.components.AppSubScreenTopBar
+import com.example.ui.components.AppUnifiedTopBar
 import com.example.ui.components.GoogleAccountDialog
 import com.example.ui.components.NotificationsSheet
 import com.example.ui.components.ScanReceiptSheet
-import com.example.ui.components.TransactionDetailDialog
+import com.example.ui.components.SubScreenDestination
 import com.example.ui.screens.AnalyticsScreen
+import com.example.ui.screens.BackupScreen
 import com.example.ui.screens.BudgetsScreen
+import com.example.ui.screens.ExportReportScreen
 import com.example.ui.screens.HomeScreen
-import com.example.ui.screens.MoreHubScreen
+import com.example.ui.screens.RecurringScreen
+import com.example.ui.screens.SavingsGoalsScreen
 import com.example.ui.screens.TransactionsScreen
+import com.example.ui.screens.TrashScreen
+import com.example.ui.screens.WalletsScreen
 import com.example.ui.theme.MyApplicationTheme
 import com.example.ui.viewmodel.UangKuViewModel
 
@@ -59,8 +69,7 @@ enum class NavigationTab(val label: String) {
     HOME("Beranda"),
     TRANSACTIONS("Transaksi"),
     ANALYTICS("Statistik"),
-    BUDGETS("Anggaran"),
-    MORE("Lainnya")
+    BUDGETS("Anggaran")
 }
 
 @Composable
@@ -121,9 +130,14 @@ fun UangKuApp(viewModel: UangKuViewModel) {
     val authState by viewModel.authState.collectAsState()
     val currentAccount = (authState as? AuthState.Authenticated)?.user
 
+    // Unique previous transaction titles for smart autocomplete in Add/Edit
+    val previousTitles: List<String> = remember(transactions) {
+        transactions.map { it.title }.filter { it.isNotBlank() }.distinct()
+    }
+
     // Navigation & Sheet States
     var currentTab by remember { mutableStateOf(NavigationTab.HOME) }
-    var moreSubTab by remember { mutableIntStateOf(0) }
+    var activeSubScreen by remember { mutableStateOf<SubScreenDestination?>(null) }
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -136,64 +150,90 @@ fun UangKuApp(viewModel: UangKuViewModel) {
     }
 
     var showGoogleAccountDialog by remember { mutableStateOf(false) }
+    var showHamburgerMenuSheet by remember { mutableStateOf(false) }
     var showScanSheet by remember { mutableStateOf(false) }
     var showAddTransactionSheet by remember { mutableStateOf(false) }
     var showNotificationsSheet by remember { mutableStateOf(false) }
 
     var editingTransaction by remember { mutableStateOf<TransactionWithDetails?>(null) }
     var pendingReceiptForAdd by remember { mutableStateOf<ParsedReceipt?>(null) }
-    var selectedTransactionForDetail by remember { mutableStateOf<TransactionWithDetails?>(null) }
     var transactionToDelete by remember { mutableStateOf<TransactionWithDetails?>(null) }
+
+    // Intercept back button when inside a SubScreen
+    BackHandler(enabled = activeSubScreen != null) {
+        activeSubScreen = null
+    }
 
     MyApplicationTheme(darkTheme = effectiveDarkTheme) {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
-            bottomBar = {
-                NavigationBar(
-                    modifier = Modifier.testTag("bottom_nav_bar"),
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    tonalElevation = 0.dp
-                ) {
-                    NavigationBarItem(
-                        selected = currentTab == NavigationTab.HOME,
-                        onClick = { currentTab = NavigationTab.HOME },
-                        icon = { Icon(Icons.Default.Home, contentDescription = "Beranda") },
-                        label = { Text("Beranda", fontWeight = if (currentTab == NavigationTab.HOME) FontWeight.Bold else FontWeight.Normal) },
-                        modifier = Modifier.testTag("nav_tab_home")
+            topBar = {
+                if (activeSubScreen == null) {
+                    // Unified Header across all 4 primary navigation tabs
+                    AppUnifiedTopBar(
+                        userAccount = currentAccount,
+                        unreadNotificationCount = unreadNotificationCount,
+                        onOpenNotifications = { showNotificationsSheet = true },
+                        onOpenHamburgerMenu = { showHamburgerMenuSheet = true }
                     )
-                    NavigationBarItem(
-                        selected = currentTab == NavigationTab.TRANSACTIONS,
-                        onClick = { currentTab = NavigationTab.TRANSACTIONS },
-                        icon = { Icon(Icons.AutoMirrored.Filled.List, contentDescription = "Transaksi") },
-                        label = { Text("Transaksi", fontWeight = if (currentTab == NavigationTab.TRANSACTIONS) FontWeight.Bold else FontWeight.Normal) },
-                        modifier = Modifier.testTag("nav_tab_transactions")
-                    )
-                    NavigationBarItem(
-                        selected = currentTab == NavigationTab.ANALYTICS,
-                        onClick = { currentTab = NavigationTab.ANALYTICS },
-                        icon = { Icon(Icons.Default.PieChart, contentDescription = "Statistik") },
-                        label = { Text("Statistik", fontWeight = if (currentTab == NavigationTab.ANALYTICS) FontWeight.Bold else FontWeight.Normal) },
-                        modifier = Modifier.testTag("nav_tab_analytics")
-                    )
-                    NavigationBarItem(
-                        selected = currentTab == NavigationTab.BUDGETS,
-                        onClick = { currentTab = NavigationTab.BUDGETS },
-                        icon = { Icon(Icons.Default.PriceCheck, contentDescription = "Anggaran") },
-                        label = { Text("Anggaran", fontWeight = if (currentTab == NavigationTab.BUDGETS) FontWeight.Bold else FontWeight.Normal) },
-                        modifier = Modifier.testTag("nav_tab_budgets")
-                    )
-                    NavigationBarItem(
-                        selected = currentTab == NavigationTab.MORE,
-                        onClick = { currentTab = NavigationTab.MORE },
-                        icon = { Icon(Icons.Default.MoreHoriz, contentDescription = "Lainnya") },
-                        label = { Text("Lainnya", fontWeight = if (currentTab == NavigationTab.MORE) FontWeight.Bold else FontWeight.Normal) },
-                        modifier = Modifier.testTag("nav_tab_more")
+                } else {
+                    // Dedicated SubScreen Header with Back Button
+                    val (title, subtitle) = when (activeSubScreen!!) {
+                        SubScreenDestination.WALLETS -> "Dompet & Rekening" to "Atur saldo, akun bank, dan e-wallet"
+                        SubScreenDestination.SAVINGS -> "Tabungan & Impian" to "Target menabung dan wishlist impian"
+                        SubScreenDestination.RECURRING -> "Transaksi Rutin & Tagihan" to "Tagihan bulanan dan pengingat otomatis"
+                        SubScreenDestination.EXPORT_REPORT -> "Ekspor Laporan & PDF" to "Unduh rekapitulasi data keuangan"
+                        SubScreenDestination.BACKUP -> "Cadangan & Google Drive" to "Backup cloud, ekspor JSON, dan restore"
+                        SubScreenDestination.TRASH -> "Tempat Sampah" to "Pulihkan transaksi terhapus ($deletedCount item)"
+                    }
+                    AppSubScreenTopBar(
+                        title = title,
+                        subtitle = subtitle,
+                        onBackClick = { activeSubScreen = null }
                     )
                 }
             },
+            bottomBar = {
+                if (activeSubScreen == null) {
+                    NavigationBar(
+                        modifier = Modifier.testTag("bottom_nav_bar"),
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        tonalElevation = 0.dp
+                    ) {
+                        NavigationBarItem(
+                            selected = currentTab == NavigationTab.HOME,
+                            onClick = { currentTab = NavigationTab.HOME },
+                            icon = { Icon(Icons.Default.Home, contentDescription = "Beranda") },
+                            label = { Text("Beranda", fontWeight = if (currentTab == NavigationTab.HOME) FontWeight.Bold else FontWeight.Normal) },
+                            modifier = Modifier.testTag("nav_tab_home")
+                        )
+                        NavigationBarItem(
+                            selected = currentTab == NavigationTab.TRANSACTIONS,
+                            onClick = { currentTab = NavigationTab.TRANSACTIONS },
+                            icon = { Icon(Icons.AutoMirrored.Filled.List, contentDescription = "Transaksi") },
+                            label = { Text("Transaksi", fontWeight = if (currentTab == NavigationTab.TRANSACTIONS) FontWeight.Bold else FontWeight.Normal) },
+                            modifier = Modifier.testTag("nav_tab_transactions")
+                        )
+                        NavigationBarItem(
+                            selected = currentTab == NavigationTab.ANALYTICS,
+                            onClick = { currentTab = NavigationTab.ANALYTICS },
+                            icon = { Icon(Icons.Default.PieChart, contentDescription = "Statistik") },
+                            label = { Text("Statistik", fontWeight = if (currentTab == NavigationTab.ANALYTICS) FontWeight.Bold else FontWeight.Normal) },
+                            modifier = Modifier.testTag("nav_tab_analytics")
+                        )
+                        NavigationBarItem(
+                            selected = currentTab == NavigationTab.BUDGETS,
+                            onClick = { currentTab = NavigationTab.BUDGETS },
+                            icon = { Icon(Icons.Default.PriceCheck, contentDescription = "Anggaran") },
+                            label = { Text("Anggaran", fontWeight = if (currentTab == NavigationTab.BUDGETS) FontWeight.Bold else FontWeight.Normal) },
+                            modifier = Modifier.testTag("nav_tab_budgets")
+                        )
+                    }
+                }
+            },
             floatingActionButton = {
-                // Show Add transaction FAB on Home and Transactions screen
-                if (currentTab == NavigationTab.HOME || currentTab == NavigationTab.TRANSACTIONS) {
+                // Show Add transaction FAB on Home and Transactions screen when not in sub-screens
+                if (activeSubScreen == null && (currentTab == NavigationTab.HOME || currentTab == NavigationTab.TRANSACTIONS)) {
                     FloatingActionButton(
                         onClick = {
                             editingTransaction = null
@@ -214,201 +254,252 @@ fun UangKuApp(viewModel: UangKuViewModel) {
                     .fillMaxSize()
                     .padding(innerPadding)
             ) {
-                when (currentTab) {
-                    NavigationTab.HOME -> {
-                        HomeScreen(
-                            totalBalance = totalBalance,
-                            totalIncome = totalIncome,
-                            totalExpense = totalExpense,
-                            wallets = wallets,
-                            recentTransactions = transactions,
-                            budgetAlerts = budgetAlerts,
-                            savingsGoals = savingsGoals,
-                            userAccount = currentAccount,
-                            onOpenGoogleAccount = { showGoogleAccountDialog = true },
-                            unreadNotificationCount = unreadNotificationCount,
-                            onOpenNotifications = { showNotificationsSheet = true },
-                            onOpenOcrScanner = {
-                                viewModel.clearScannedReceipt()
-                                showScanSheet = true
-                            },
-                            onOpenAddTransaction = {
-                                editingTransaction = null
-                                pendingReceiptForAdd = null
-                                showAddTransactionSheet = true
-                            },
-                            onOpenTransfer = {
-                                moreSubTab = 0
-                                currentTab = NavigationTab.MORE
-                            },
-                            onTransactionClick = { tx ->
-                                selectedTransactionForDetail = tx
-                            },
-                            onNavigateToTransactions = {
-                                currentTab = NavigationTab.TRANSACTIONS
-                            },
-                            onNavigateToWallets = {
-                                moreSubTab = 0
-                                currentTab = NavigationTab.MORE
-                            },
-                            onNavigateToBudgets = {
-                                currentTab = NavigationTab.BUDGETS
-                            },
-                            onNavigateToSavings = {
-                                moreSubTab = 1
-                                currentTab = NavigationTab.MORE
-                            },
-                            onNavigateToTrash = {
-                                moreSubTab = 4
-                                currentTab = NavigationTab.MORE
+                AnimatedContent(
+                    targetState = activeSubScreen to currentTab,
+                    transitionSpec = {
+                        (fadeIn() + slideInHorizontally { width -> width / 10 })
+                            .togetherWith(fadeOut() + slideOutHorizontally { width -> -width / 10 })
+                    },
+                    label = "ScreenTransition"
+                ) { (subScreen, tab) ->
+                    if (subScreen != null) {
+                        when (subScreen) {
+                            SubScreenDestination.WALLETS -> {
+                                WalletsScreen(
+                                    wallets = wallets,
+                                    onAddWallet = { name, type, bal, acc, col ->
+                                        viewModel.addWallet(name, type, bal, acc, col)
+                                    },
+                                    onTransfer = { from, to, amt, notes ->
+                                        viewModel.transferWallet(from, to, amt, notes)
+                                    }
+                                )
                             }
-                        )
-                    }
-
-                    NavigationTab.TRANSACTIONS -> {
-                        TransactionsScreen(
-                            transactions = filteredTransactions,
-                            categories = categories,
-                            wallets = wallets,
-                            searchQuery = searchQuery,
-                            onSearchChange = {
-                                viewModel.searchQuery.value = it
-                                if (it.isNotBlank()) viewModel.addSearchToHistory(it)
-                            },
-                            searchHistory = searchHistory,
-                            selectedTypeFilter = selectedTypeFilter,
-                            onTypeFilterChange = { viewModel.selectedTypeFilter.value = it },
-                            selectedCategoryId = selectedCategoryId,
-                            onCategoryFilterChange = { viewModel.selectedCategoryId.value = it },
-                            selectedWalletId = selectedWalletId,
-                            onWalletFilterChange = { viewModel.selectedWalletId.value = it },
-                            selectedTimeRange = selectedTimeRange,
-                            onTimeRangeChange = { viewModel.selectedTimeRange.value = it },
-                            minAmount = minAmountFilter,
-                            maxAmount = maxAmountFilter,
-                            onMinAmountChange = { viewModel.minAmountFilter.value = it },
-                            onMaxAmountChange = { viewModel.maxAmountFilter.value = it },
-                            sortBy = sortBy,
-                            onSortChange = { viewModel.sortBy.value = it },
-                            activeFilterCount = activeFilterCount,
-                            onResetFilters = { viewModel.resetFilters() },
-                            onTransactionClick = { tx ->
-                                selectedTransactionForDetail = tx
-                            },
-                            onTransactionLongClick = { tx ->
-                                transactionToDelete = tx
+                            SubScreenDestination.SAVINGS -> {
+                                SavingsGoalsScreen(
+                                    goals = savingsGoals,
+                                    wallets = wallets,
+                                    onAddGoal = { title, amt, date, icon, col, notes ->
+                                        viewModel.addSavingsGoal(title, amt, date, icon, col, notes)
+                                    },
+                                    onContribute = { goalId, walletId, amt, title ->
+                                        viewModel.contributeToGoal(goalId, walletId, amt, title)
+                                    },
+                                    onDeleteGoal = { goalId ->
+                                        viewModel.deleteSavingsGoal(goalId)
+                                    }
+                                )
                             }
-                        )
-                    }
-
-                    NavigationTab.ANALYTICS -> {
-                        AnalyticsScreen(
-                            totalIncome = totalIncome,
-                            totalExpense = totalExpense,
-                            categoryBreakdown = categoryBreakdown,
-                            monthlyTrends = monthlyTrends,
-                            insights = insights
-                        )
-                    }
-
-                    NavigationTab.BUDGETS -> {
-                        BudgetsScreen(
-                            budgetAlerts = budgetAlerts,
-                            categories = categories,
-                            onSaveBudget = { catId, limit ->
-                                viewModel.setBudget(catId, limit)
-                            },
-                            onDeleteBudget = { catId ->
-                                val b = budgets.find { it.categoryId == catId }
-                                if (b != null) viewModel.deleteBudget(b.id)
+                            SubScreenDestination.RECURRING -> {
+                                RecurringScreen(
+                                    recurringList = recurring,
+                                    categories = categories,
+                                    wallets = wallets,
+                                    onAddRecurring = { title, amt, type, catId, wId, freq, notes ->
+                                        viewModel.addRecurring(title, amt, type, catId, wId, freq, notes)
+                                    },
+                                    onProcessNow = { rec ->
+                                        viewModel.processRecurringNow(rec)
+                                    },
+                                    onToggleActive = { rec ->
+                                        viewModel.toggleRecurringActive(rec)
+                                    },
+                                    onDelete = { id ->
+                                        viewModel.deleteRecurring(id)
+                                    },
+                                    onTriggerReminderNotification = { rec ->
+                                        viewModel.triggerRecurringReminderNotification(context, rec)
+                                    }
+                                )
                             }
-                        )
-                    }
+                            SubScreenDestination.EXPORT_REPORT -> {
+                                ExportReportScreen(
+                                    transactions = transactions,
+                                    totalIncome = totalIncome,
+                                    totalExpense = totalExpense,
+                                    isDarkMode = isDarkMode,
+                                    onToggleDarkMode = { viewModel.isDarkMode.value = it },
+                                    onExportCsv = { ctx -> viewModel.exportToCsv(ctx) }
+                                )
+                            }
+                            SubScreenDestination.BACKUP -> {
+                                BackupScreen(
+                                    isAutoSync = isAutoSync,
+                                    onToggleAutoSync = { enabled ->
+                                        viewModel.toggleAutoSync(context, enabled)
+                                    },
+                                    lastBackupTime = lastBackupTime,
+                                    isBackupInProgress = isBackupInProgress,
+                                    backupStatusMessage = backupStatusMessage,
+                                    userAccount = currentAccount,
+                                    isFirebaseActive = viewModel.isFirebaseActive(),
+                                    onOpenGoogleAccount = { showGoogleAccountDialog = true },
+                                    onTriggerManualBackup = {
+                                        viewModel.triggerManualBackup(context)
+                                    },
+                                    onRestoreFromCloud = { callback ->
+                                        viewModel.restoreFromCloud(context, callback)
+                                    },
+                                    onExportBackupJson = { ctx ->
+                                        viewModel.exportBackupJsonFile(ctx)
+                                    },
+                                    onRestoreFromJson = { json, callback ->
+                                        viewModel.restoreFromJsonString(json, callback)
+                                    },
+                                    onResetAllData = { callback ->
+                                        viewModel.resetToFreshState(callback)
+                                    }
+                                )
+                            }
+                            SubScreenDestination.TRASH -> {
+                                TrashScreen(
+                                    deletedTransactions = deletedTransactions,
+                                    onRestoreTransaction = { id ->
+                                        viewModel.restoreTransaction(id)
+                                    },
+                                    onPermanentDelete = { id ->
+                                        viewModel.permanentlyDeleteTransaction(id)
+                                    },
+                                    onClearTrash = {
+                                        viewModel.clearTrash()
+                                    }
+                                )
+                            }
+                        }
+                    } else {
+                        when (tab) {
+                            NavigationTab.HOME -> {
+                                HomeScreen(
+                                    totalBalance = totalBalance,
+                                    totalIncome = totalIncome,
+                                    totalExpense = totalExpense,
+                                    wallets = wallets,
+                                    recentTransactions = transactions,
+                                    budgetAlerts = budgetAlerts,
+                                    savingsGoals = savingsGoals,
+                                    userAccount = currentAccount,
+                                    onOpenGoogleAccount = { showGoogleAccountDialog = true },
+                                    unreadNotificationCount = unreadNotificationCount,
+                                    onOpenNotifications = { showNotificationsSheet = true },
+                                    onOpenOcrScanner = {
+                                        viewModel.clearScannedReceipt()
+                                        showScanSheet = true
+                                    },
+                                    onOpenAddTransaction = {
+                                        editingTransaction = null
+                                        pendingReceiptForAdd = null
+                                        showAddTransactionSheet = true
+                                    },
+                                    onOpenTransfer = {
+                                        activeSubScreen = SubScreenDestination.WALLETS
+                                    },
+                                    onTransactionClick = { tx ->
+                                        editingTransaction = tx
+                                        pendingReceiptForAdd = null
+                                        showAddTransactionSheet = true
+                                    },
+                                    onNavigateToTransactions = {
+                                        currentTab = NavigationTab.TRANSACTIONS
+                                    },
+                                    onNavigateToWallets = {
+                                        activeSubScreen = SubScreenDestination.WALLETS
+                                    },
+                                    onNavigateToBudgets = {
+                                        currentTab = NavigationTab.BUDGETS
+                                    },
+                                    onNavigateToSavings = {
+                                        activeSubScreen = SubScreenDestination.SAVINGS
+                                    },
+                                    onNavigateToTrash = {
+                                        activeSubScreen = SubScreenDestination.TRASH
+                                    }
+                                )
+                            }
 
-                    NavigationTab.MORE -> {
-                        MoreHubScreen(
-                            wallets = wallets,
-                            savingsGoals = savingsGoals,
-                            recurringList = recurring,
-                            categories = categories,
-                            transactions = transactions,
-                            deletedTransactions = deletedTransactions,
-                            totalIncome = totalIncome,
-                            totalExpense = totalExpense,
-                            isDarkMode = isDarkMode,
-                            onToggleDarkMode = { viewModel.isDarkMode.value = it },
-                            onAddWallet = { name, type, bal, acc, col ->
-                                viewModel.addWallet(name, type, bal, acc, col)
-                            },
-                            onTransfer = { from, to, amt, notes ->
-                                viewModel.transferWallet(from, to, amt, notes)
-                            },
-                            onAddGoal = { title, amt, date, icon, col, notes ->
-                                viewModel.addSavingsGoal(title, amt, date, icon, col, notes)
-                            },
-                            onContributeGoal = { goalId, walletId, amt, title ->
-                                viewModel.contributeToGoal(goalId, walletId, amt, title)
-                            },
-                            onDeleteGoal = { goalId ->
-                                viewModel.deleteSavingsGoal(goalId)
-                            },
-                            onAddRecurring = { title, amt, type, catId, wId, freq, notes ->
-                                viewModel.addRecurring(title, amt, type, catId, wId, freq, notes)
-                            },
-                            onProcessRecurringNow = { rec ->
-                                viewModel.processRecurringNow(rec)
-                            },
-                            onToggleRecurringActive = { rec ->
-                                viewModel.toggleRecurringActive(rec)
-                            },
-                            onDeleteRecurring = { id ->
-                                viewModel.deleteRecurring(id)
-                            },
-                            onTriggerRecurringNotification = { rec ->
-                                viewModel.triggerRecurringReminderNotification(context, rec)
-                            },
-                            onExportCsv = { ctx ->
-                                viewModel.exportToCsv(ctx)
-                            },
-                            onRestoreDeletedTransaction = { id ->
-                                viewModel.restoreTransaction(id)
-                            },
-                            onPermanentDeleteTransaction = { id ->
-                                viewModel.permanentlyDeleteTransaction(id)
-                            },
-                            onClearTrash = {
-                                viewModel.clearTrash()
-                            },
-                            isAutoSync = isAutoSync,
-                            onToggleAutoSync = { enabled ->
-                                viewModel.toggleAutoSync(context, enabled)
-                            },
-                            lastBackupTime = lastBackupTime,
-                            isBackupInProgress = isBackupInProgress,
-                            backupStatusMessage = backupStatusMessage,
-                            userAccount = currentAccount,
-                            isFirebaseActive = viewModel.isFirebaseActive(),
-                            onOpenGoogleAccount = { showGoogleAccountDialog = true },
-                            onTriggerManualBackup = {
-                                viewModel.triggerManualBackup(context)
-                            },
-                            onRestoreFromCloud = { callback ->
-                                viewModel.restoreFromCloud(context, callback)
-                            },
-                            onExportBackupJson = { ctx ->
-                                viewModel.exportBackupJsonFile(ctx)
-                            },
-                            onRestoreFromJson = { json, callback ->
-                                viewModel.restoreFromJsonString(json, callback)
-                            },
-                            onResetAllData = { callback ->
-                                viewModel.resetToFreshState(callback)
-                            },
-                            initialTab = moreSubTab
-                        )
+                            NavigationTab.TRANSACTIONS -> {
+                                TransactionsScreen(
+                                    transactions = filteredTransactions,
+                                    categories = categories,
+                                    wallets = wallets,
+                                    searchQuery = searchQuery,
+                                    onSearchChange = {
+                                        viewModel.searchQuery.value = it
+                                        if (it.isNotBlank()) viewModel.addSearchToHistory(it)
+                                    },
+                                    searchHistory = searchHistory,
+                                    selectedTypeFilter = selectedTypeFilter,
+                                    onTypeFilterChange = { viewModel.selectedTypeFilter.value = it },
+                                    selectedCategoryId = selectedCategoryId,
+                                    onCategoryFilterChange = { viewModel.selectedCategoryId.value = it },
+                                    selectedWalletId = selectedWalletId,
+                                    onWalletFilterChange = { viewModel.selectedWalletId.value = it },
+                                    selectedTimeRange = selectedTimeRange,
+                                    onTimeRangeChange = { viewModel.selectedTimeRange.value = it },
+                                    minAmount = minAmountFilter,
+                                    maxAmount = maxAmountFilter,
+                                    onMinAmountChange = { viewModel.minAmountFilter.value = it },
+                                    onMaxAmountChange = { viewModel.maxAmountFilter.value = it },
+                                    sortBy = sortBy,
+                                    onSortChange = { viewModel.sortBy.value = it },
+                                    activeFilterCount = activeFilterCount,
+                                    onResetFilters = { viewModel.resetFilters() },
+                                    onTransactionClick = { tx ->
+                                        editingTransaction = tx
+                                        pendingReceiptForAdd = null
+                                        showAddTransactionSheet = true
+                                    },
+                                    onTransactionLongClick = { tx ->
+                                        transactionToDelete = tx
+                                    }
+                                )
+                            }
+
+                            NavigationTab.ANALYTICS -> {
+                                AnalyticsScreen(
+                                    totalIncome = totalIncome,
+                                    totalExpense = totalExpense,
+                                    categoryBreakdown = categoryBreakdown,
+                                    monthlyTrends = monthlyTrends,
+                                    insights = insights
+                                )
+                            }
+
+                            NavigationTab.BUDGETS -> {
+                                BudgetsScreen(
+                                    budgetAlerts = budgetAlerts,
+                                    categories = categories,
+                                    onSaveBudget = { catId, limit ->
+                                        viewModel.setBudget(catId, limit)
+                                    },
+                                    onDeleteBudget = { catId ->
+                                        val b = budgets.find { it.categoryId == catId }
+                                        if (b != null) viewModel.deleteBudget(b.id)
+                                    }
+                                )
+                            }
+                        }
                     }
                 }
             }
+        }
+
+        // Hamburger Menu Sheet
+        if (showHamburgerMenuSheet) {
+            AppMenuSheet(
+                userAccount = currentAccount,
+                deletedItemsCount = deletedCount,
+                isDarkMode = isDarkMode,
+                onToggleDarkMode = { viewModel.isDarkMode.value = it },
+                onNavigateToSubScreen = { destination ->
+                    activeSubScreen = destination
+                },
+                onOpenGoogleAccount = {
+                    showGoogleAccountDialog = true
+                },
+                onDismiss = {
+                    showHamburgerMenuSheet = false
+                }
+            )
         }
 
         // OCR Scanner Modal Sheet
@@ -438,6 +529,7 @@ fun UangKuApp(viewModel: UangKuViewModel) {
             AddEditTransactionSheet(
                 categories = categories,
                 wallets = wallets,
+                previousTitles = previousTitles,
                 initialReceiptData = pendingReceiptForAdd,
                 existingTransaction = editingTransaction,
                 onSave = { id, title, amount, type, catId, walletId, dateMillis, notes, receiptPath, merchant, tags, editReason ->
@@ -449,6 +541,7 @@ fun UangKuApp(viewModel: UangKuViewModel) {
                             type = type,
                             categoryId = catId,
                             walletId = walletId,
+                            toWalletId = null,
                             dateMillis = dateMillis,
                             notes = notes,
                             receiptImagePath = receiptPath,
@@ -484,30 +577,35 @@ fun UangKuApp(viewModel: UangKuViewModel) {
             )
         }
 
-        // Transaction Detail Dialog
-        selectedTransactionForDetail?.let { tx ->
-            TransactionDetailDialog(
-                transaction = tx,
-                editHistoryFlow = viewModel.getEditHistoryForTransaction(tx.id),
-                onEdit = {
-                    editingTransaction = tx
-                    pendingReceiptForAdd = null
-                    selectedTransactionForDetail = null
-                    showAddTransactionSheet = true
+        // Delete Confirmation Dialog (Soft-delete to Trash)
+        if (transactionToDelete != null) {
+            val tx = transactionToDelete!!
+            AlertDialog(
+                onDismissRequest = { transactionToDelete = null },
+                title = { Text("Pindahkan ke Tempat Sampah?") },
+                text = {
+                    Text("Transaksi \"${tx.title}\" akan dipindahkan ke Tempat Sampah. Anda masih dapat memulihkannya kembali kapan saja.")
                 },
-                onRevertEdit = { history ->
-                    viewModel.revertEdit(history)
-                    selectedTransactionForDetail = null
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            viewModel.deleteTransaction(tx.id)
+                            transactionToDelete = null
+                        },
+                        modifier = Modifier.testTag("btn_confirm_delete")
+                    ) {
+                        Text("Pindahkan ke Sampah", color = MaterialTheme.colorScheme.error)
+                    }
                 },
-                onDismiss = { selectedTransactionForDetail = null },
-                onDelete = {
-                    viewModel.deleteTransaction(tx.id)
-                    selectedTransactionForDetail = null
+                dismissButton = {
+                    TextButton(onClick = { transactionToDelete = null }) {
+                        Text("Batal")
+                    }
                 }
             )
         }
 
-        // Notifications Bottom Sheet
+        // Notifications Sheet
         if (showNotificationsSheet) {
             NotificationsSheet(
                 notifications = notifications,
@@ -534,31 +632,7 @@ fun UangKuApp(viewModel: UangKuViewModel) {
             )
         }
 
-        // Delete Confirmation Alert (from Long Click)
-        transactionToDelete?.let { tx ->
-            AlertDialog(
-                onDismissRequest = { transactionToDelete = null },
-                title = { Text("Pindahkan ke Sampah?") },
-                text = { Text("Apakah Anda yakin ingin memindahkan \"${tx.title}\" senilai Rp ${tx.amount.toLong()} ke tempat sampah? Saldo dompet akan disesuaikan kembali.") },
-                confirmButton = {
-                    TextButton(
-                        onClick = {
-                            viewModel.deleteTransaction(tx.id)
-                            transactionToDelete = null
-                        }
-                    ) {
-                        Text("Pindahkan ke Sampah", color = MaterialTheme.colorScheme.error)
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { transactionToDelete = null }) {
-                        Text("Batal")
-                    }
-                }
-            )
-        }
-
-        // Google Account & Sign-In Dialog
+        // Google Account & Cloud Sync Dialog
         if (showGoogleAccountDialog) {
             GoogleAccountDialog(
                 authState = authState,
