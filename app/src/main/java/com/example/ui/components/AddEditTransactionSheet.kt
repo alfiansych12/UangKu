@@ -101,9 +101,9 @@ fun AddEditTransactionSheet(
 
     var amountText by remember {
         mutableStateOf(
-            existingTransaction?.amount?.toLong()?.toString()
+            existingTransaction?.amount?.toLong()?.let { Formatters.formatNumberWithDots(it.toString()) }
                 ?: if (initialReceiptData != null && initialReceiptData.amount > 0) {
-                    initialReceiptData.amount.toLong().toString()
+                    Formatters.formatNumberWithDots(initialReceiptData.amount.toLong().toString())
                 } else ""
         )
     }
@@ -251,11 +251,13 @@ fun AddEditTransactionSheet(
             OutlinedTextField(
                 value = amountText,
                 onValueChange = { input ->
-                    if (input.all { it.isDigit() }) {
-                        amountText = input
+                    val cleanDigits = input.filter { it.isDigit() }
+                    if (cleanDigits.length <= 15) {
+                        amountText = Formatters.formatNumberWithDots(cleanDigits)
                     }
                 },
                 label = { Text("Jumlah Uang (Nominal)") },
+                placeholder = { Text("0") },
                 prefix = {
                     Text(
                         text = "Rp ",
@@ -484,10 +486,10 @@ fun AddEditTransactionSheet(
             Spacer(modifier = Modifier.height(24.dp))
 
             // Save Button
-            val isValid = (amountText.toDoubleOrNull() ?: 0.0) > 0.0
+            val isValid = Formatters.parseAmount(amountText) > 0.0
             Button(
                 onClick = {
-                    val amount = amountText.toDoubleOrNull() ?: 0.0
+                    val amount = Formatters.parseAmount(amountText)
                     val finalTitle = titleText.ifBlank {
                         if (transactionType == "TRANSFER") "Transfer Dompet" else "Transaksi"
                     }

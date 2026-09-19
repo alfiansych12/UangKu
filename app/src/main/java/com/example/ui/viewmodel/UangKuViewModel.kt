@@ -558,6 +558,73 @@ class UangKuViewModel(
         }
     }
 
+    fun createAndSendCustomNotification(
+        context: Context,
+        title: String,
+        message: String,
+        type: String = "REMINDER"
+    ) {
+        viewModelScope.launch {
+            // 1. Send system push notification to Android status bar
+            NotificationHelper.sendCustomNotification(
+                context = context,
+                title = title,
+                message = message,
+                channelType = when (type) {
+                    "BUDGET_ALERT" -> NotificationHelper.CHANNEL_BUDGET_ALERTS
+                    "BACKUP" -> NotificationHelper.CHANNEL_BACKUP_SYNC
+                    else -> NotificationHelper.CHANNEL_RECURRING_REMINDERS
+                }
+            )
+
+            // 2. Persist to in-app notification inbox
+            repository.insertNotification(
+                AppNotificationEntity(
+                    title = title,
+                    message = message,
+                    type = type,
+                    timestamp = System.currentTimeMillis(),
+                    isRead = false
+                )
+            )
+        }
+    }
+
+    fun sendTestSystemNotification(context: Context) {
+        viewModelScope.launch {
+            NotificationHelper.sendTestNotification(context)
+            repository.insertNotification(
+                AppNotificationEntity(
+                    title = "🔔 Tes Notifikasi Berhasil",
+                    message = "Notifikasi sistem Android telah berhasil dikirim ke status bar perangkat Anda.",
+                    type = "GENERAL",
+                    timestamp = System.currentTimeMillis(),
+                    isRead = false
+                )
+            )
+        }
+    }
+
+    fun triggerRecurringReminderNotification(context: Context, recurring: RecurringTransactionEntity) {
+        viewModelScope.launch {
+            NotificationHelper.sendRecurringReminder(
+                context = context,
+                title = recurring.title,
+                amount = recurring.amount,
+                dueDaysText = "akan segera jatuh tempo"
+            )
+            repository.insertNotification(
+                AppNotificationEntity(
+                    title = "📅 Pengingat Tagihan: ${recurring.title}",
+                    message = "Tagihan \"${recurring.title}\" sebesar ${Formatters.formatRupiah(recurring.amount)} perlu dibayar.",
+                    type = "RECURRING_REMINDER",
+                    timestamp = System.currentTimeMillis(),
+                    isRead = false
+                )
+            )
+        }
+    }
+
     fun checkAndTriggerBudgetAlert(context: Context, categoryId: Long) {
         viewModelScope.launch {
             val alert = budgetAlerts.value.find { it.categoryId == categoryId } ?: return@launch

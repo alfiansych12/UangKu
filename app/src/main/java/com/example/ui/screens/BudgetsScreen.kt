@@ -395,8 +395,14 @@ fun BudgetsScreen(
 
                     OutlinedTextField(
                         value = limitInput,
-                        onValueChange = { if (it.all { ch -> ch.isDigit() }) limitInput = it },
+                        onValueChange = { input ->
+                            val cleanDigits = input.filter { ch -> ch.isDigit() }
+                            if (cleanDigits.length <= 15) {
+                                limitInput = Formatters.formatNumberWithDots(cleanDigits)
+                            }
+                        },
                         label = { Text("Batas Anggaran Bulanan") },
+                        placeholder = { Text("0") },
                         prefix = { Text("Rp ") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
@@ -408,7 +414,7 @@ fun BudgetsScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        val limit = limitInput.toDoubleOrNull() ?: 0.0
+                        val limit = Formatters.parseAmount(limitInput)
                         if (limit > 0) {
                             onSaveBudget(selectedCatId, limit)
                             showAddDialog = false

@@ -311,8 +311,14 @@ fun SavingsGoalsScreen(
 
                     OutlinedTextField(
                         value = targetText,
-                        onValueChange = { if (it.all { ch -> ch.isDigit() }) targetText = it },
+                        onValueChange = { input ->
+                            val cleanDigits = input.filter { ch -> ch.isDigit() }
+                            if (cleanDigits.length <= 15) {
+                                targetText = Formatters.formatNumberWithDots(cleanDigits)
+                            }
+                        },
                         label = { Text("Jumlah Target (Nominal)") },
+                        placeholder = { Text("0") },
                         prefix = { Text("Rp ") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
@@ -333,7 +339,7 @@ fun SavingsGoalsScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        val targetAmt = targetText.toDoubleOrNull() ?: 0.0
+                        val targetAmt = Formatters.parseAmount(targetText)
                         if (title.isNotBlank() && targetAmt > 0) {
                             onAddGoal(title, targetAmt, cal.timeInMillis, "savings", "#0D9488", notes)
                             showAddDialog = false
@@ -388,8 +394,14 @@ fun SavingsGoalsScreen(
 
                     OutlinedTextField(
                         value = contributeAmountText,
-                        onValueChange = { if (it.all { ch -> ch.isDigit() }) contributeAmountText = it },
+                        onValueChange = { input ->
+                            val cleanDigits = input.filter { ch -> ch.isDigit() }
+                            if (cleanDigits.length <= 15) {
+                                contributeAmountText = Formatters.formatNumberWithDots(cleanDigits)
+                            }
+                        },
                         label = { Text("Nominal Setoran") },
+                        placeholder = { Text("0") },
                         prefix = { Text("Rp ") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
@@ -401,7 +413,7 @@ fun SavingsGoalsScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        val amt = contributeAmountText.toDoubleOrNull() ?: 0.0
+                        val amt = Formatters.parseAmount(contributeAmountText)
                         if (amt > 0) {
                             onContribute(goal.id, selectedWalletId, amt, goal.title)
                             contributingGoal = null

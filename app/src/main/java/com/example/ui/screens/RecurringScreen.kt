@@ -17,7 +17,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AddAlert
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material3.AlertDialog
@@ -62,6 +64,7 @@ fun RecurringScreen(
     onProcessNow: (RecurringTransactionEntity) -> Unit,
     onToggleActive: (RecurringTransactionEntity) -> Unit,
     onDelete: (Long) -> Unit,
+    onTriggerReminderNotification: (RecurringTransactionEntity) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
@@ -174,16 +177,30 @@ fun RecurringScreen(
                                 }
 
                                 Row(verticalAlignment = Alignment.CenterVertically) {
+                                    IconButton(
+                                        onClick = { onTriggerReminderNotification(rec) },
+                                        modifier = Modifier.size(36.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.NotificationsActive,
+                                            contentDescription = "Uji Kirim Notifikasi Tagihan",
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.width(2.dp))
+
                                     OutlinedButton(
                                         onClick = { onProcessNow(rec) },
                                         shape = RoundedCornerShape(10.dp)
                                     ) {
                                         Icon(imageVector = Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
                                         Spacer(modifier = Modifier.width(4.dp))
-                                        Text("Catat Sekarang")
+                                        Text("Catat")
                                     }
 
-                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Spacer(modifier = Modifier.width(2.dp))
 
                                     IconButton(onClick = { onDelete(rec.id) }) {
                                         Icon(imageVector = Icons.Default.Delete, contentDescription = "Hapus", tint = MaterialTheme.colorScheme.error)
@@ -239,8 +256,14 @@ fun RecurringScreen(
 
                     OutlinedTextField(
                         value = amountText,
-                        onValueChange = { if (it.all { ch -> ch.isDigit() }) amountText = it },
+                        onValueChange = { input ->
+                            val cleanDigits = input.filter { ch -> ch.isDigit() }
+                            if (cleanDigits.length <= 15) {
+                                amountText = Formatters.formatNumberWithDots(cleanDigits)
+                            }
+                        },
                         label = { Text("Nominal") },
+                        placeholder = { Text("0") },
                         prefix = { Text("Rp ") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
@@ -259,7 +282,7 @@ fun RecurringScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        val amt = amountText.toDoubleOrNull() ?: 0.0
+                        val amt = Formatters.parseAmount(amountText)
                         if (title.isNotBlank() && amt > 0) {
                             onAddRecurring(title, amt, type, selectedCatId, selectedWalletId, frequency, notes)
                             showAddDialog = false

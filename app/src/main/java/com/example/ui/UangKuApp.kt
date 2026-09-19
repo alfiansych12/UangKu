@@ -1,5 +1,8 @@
 package com.example.ui
 
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
@@ -121,6 +124,16 @@ fun UangKuApp(viewModel: UangKuViewModel) {
     // Navigation & Sheet States
     var currentTab by remember { mutableStateOf(NavigationTab.HOME) }
     var moreSubTab by remember { mutableIntStateOf(0) }
+
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { _ -> }
+
+    LaunchedEffect(Unit) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
 
     var showGoogleAccountDialog by remember { mutableStateOf(false) }
     var showScanSheet by remember { mutableStateOf(false) }
@@ -351,6 +364,9 @@ fun UangKuApp(viewModel: UangKuViewModel) {
                             onDeleteRecurring = { id ->
                                 viewModel.deleteRecurring(id)
                             },
+                            onTriggerRecurringNotification = { rec ->
+                                viewModel.triggerRecurringReminderNotification(context, rec)
+                            },
                             onExportCsv = { ctx ->
                                 viewModel.exportToCsv(ctx)
                             },
@@ -507,6 +523,12 @@ fun UangKuApp(viewModel: UangKuViewModel) {
                 },
                 onClearAll = {
                     viewModel.clearAllNotifications()
+                },
+                onSendTestNotification = {
+                    viewModel.sendTestSystemNotification(context)
+                },
+                onCreateCustomNotification = { title, message, type ->
+                    viewModel.createAndSendCustomNotification(context, title, message, type)
                 },
                 onDismiss = { showNotificationsSheet = false }
             )

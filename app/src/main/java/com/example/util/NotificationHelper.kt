@@ -132,6 +132,91 @@ object NotificationHelper {
         } catch (_: SecurityException) {}
     }
 
+    fun sendTestNotification(
+        context: Context,
+        title: String = "🔔 Notifikasi UangKu Berfungsi!",
+        message: String = "Pemberitahuan sistem dan pengingat tagihan aktif dengan lancar di perangkat Anda."
+    ) {
+        createNotificationChannels(context)
+        if (!hasNotificationPermission(context)) return
+
+        val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)?.apply {
+            flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK
+        }
+        val pendingIntent = if (intent != null) {
+            android.app.PendingIntent.getActivity(
+                context,
+                0,
+                intent,
+                android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
+            )
+        } else null
+
+        val notification = NotificationCompat.Builder(context, CHANNEL_RECURRING_REMINDERS)
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setContentTitle(title)
+            .setContentText(message)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(message))
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .apply {
+                if (pendingIntent != null) {
+                    setContentIntent(pendingIntent)
+                }
+            }
+            .build()
+
+        try {
+            NotificationManagerCompat.from(context).notify(
+                (System.currentTimeMillis() % 100000).toInt(),
+                notification
+            )
+        } catch (_: SecurityException) {}
+    }
+
+    fun sendCustomNotification(
+        context: Context,
+        title: String,
+        message: String,
+        channelType: String = CHANNEL_RECURRING_REMINDERS
+    ) {
+        createNotificationChannels(context)
+        if (!hasNotificationPermission(context)) return
+
+        val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)?.apply {
+            flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK
+        }
+        val pendingIntent = if (intent != null) {
+            android.app.PendingIntent.getActivity(
+                context,
+                0,
+                intent,
+                android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
+            )
+        } else null
+
+        val notification = NotificationCompat.Builder(context, channelType)
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setContentTitle(title)
+            .setContentText(message)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(message))
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .apply {
+                if (pendingIntent != null) {
+                    setContentIntent(pendingIntent)
+                }
+            }
+            .build()
+
+        try {
+            NotificationManagerCompat.from(context).notify(
+                (System.currentTimeMillis() % 100000).toInt(),
+                notification
+            )
+        } catch (_: SecurityException) {}
+    }
+
     fun sendBackupNotification(
         context: Context,
         isSuccess: Boolean,

@@ -42,6 +42,29 @@ object Formatters {
             .trim()
     }
 
+    /**
+     * Formats raw digits string with Indonesian thousand separator dot (e.g. 50000 -> "50.000")
+     */
+    fun formatNumberWithDots(rawDigitsOrFormatted: String): String {
+        val digits = rawDigitsOrFormatted.filter { it.isDigit() }
+        if (digits.isEmpty()) return ""
+        return try {
+            val longVal = digits.toLong()
+            val numberFormat = NumberFormat.getNumberInstance(indonesianLocale)
+            numberFormat.format(longVal)
+        } catch (_: Exception) {
+            digits
+        }
+    }
+
+    /**
+     * Parses numeric digits from formatted string (e.g. "50.000" -> 50000.0)
+     */
+    fun parseAmount(text: String): Double {
+        val digits = text.filter { it.isDigit() }
+        return digits.toDoubleOrNull() ?: 0.0
+    }
+
     fun formatPercentage(ratio: Double): String {
         return "${(ratio * 100).toInt()}%"
     }

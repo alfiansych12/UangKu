@@ -289,8 +289,14 @@ fun WalletsScreen(
 
                     OutlinedTextField(
                         value = balanceText,
-                        onValueChange = { if (it.all { ch -> ch.isDigit() }) balanceText = it },
+                        onValueChange = { input ->
+                            val cleanDigits = input.filter { ch -> ch.isDigit() }
+                            if (cleanDigits.length <= 15) {
+                                balanceText = Formatters.formatNumberWithDots(cleanDigits)
+                            }
+                        },
                         label = { Text("Saldo Awal") },
+                        placeholder = { Text("0") },
                         prefix = { Text("Rp ") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
@@ -311,7 +317,7 @@ fun WalletsScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        val bal = balanceText.toDoubleOrNull() ?: 0.0
+                        val bal = Formatters.parseAmount(balanceText)
                         if (name.isNotBlank()) {
                             onAddWallet(name, type, bal, accountNum, "#1E88E5")
                             showAddDialog = false
@@ -387,8 +393,14 @@ fun WalletsScreen(
 
                     OutlinedTextField(
                         value = transferAmountText,
-                        onValueChange = { if (it.all { ch -> ch.isDigit() }) transferAmountText = it },
+                        onValueChange = { input ->
+                            val cleanDigits = input.filter { ch -> ch.isDigit() }
+                            if (cleanDigits.length <= 15) {
+                                transferAmountText = Formatters.formatNumberWithDots(cleanDigits)
+                            }
+                        },
                         label = { Text("Nominal Transfer") },
+                        placeholder = { Text("0") },
                         prefix = { Text("Rp ") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
@@ -409,7 +421,7 @@ fun WalletsScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        val amt = transferAmountText.toDoubleOrNull() ?: 0.0
+                        val amt = Formatters.parseAmount(transferAmountText)
                         if (amt > 0 && fromId != toId) {
                             onTransfer(fromId, toId, amt, transferNotes)
                             showTransferDialog = false

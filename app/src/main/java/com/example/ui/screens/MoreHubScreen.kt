@@ -56,6 +56,7 @@ fun MoreHubScreen(
     onProcessRecurringNow: (RecurringTransactionEntity) -> Unit,
     onToggleRecurringActive: (RecurringTransactionEntity) -> Unit,
     onDeleteRecurring: (Long) -> Unit,
+    onTriggerRecurringNotification: (RecurringTransactionEntity) -> Unit = {},
     onExportCsv: suspend (Context) -> Uri?,
     // Trash
     onRestoreDeletedTransaction: (Long) -> Unit,
@@ -140,7 +141,8 @@ fun MoreHubScreen(
                 onAddRecurring = onAddRecurring,
                 onProcessNow = onProcessRecurringNow,
                 onToggleActive = onToggleRecurringActive,
-                onDelete = onDeleteRecurring
+                onDelete = onDeleteRecurring,
+                onTriggerReminderNotification = onTriggerRecurringNotification
             )
             3 -> ExportReportScreen(
                 transactions = transactions,

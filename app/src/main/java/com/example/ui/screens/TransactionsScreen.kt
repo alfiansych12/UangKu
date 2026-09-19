@@ -456,8 +456,11 @@ fun TransactionsScreen(
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     OutlinedTextField(
-                        value = minAmount?.toLong()?.toString() ?: "",
-                        onValueChange = { onMinAmountChange(it.toDoubleOrNull()) },
+                        value = minAmount?.toLong()?.let { Formatters.formatNumberWithDots(it.toString()) } ?: "",
+                        onValueChange = { input ->
+                            val cleanDigits = input.filter { it.isDigit() }
+                            onMinAmountChange(if (cleanDigits.isEmpty()) null else cleanDigits.toDoubleOrNull())
+                        },
                         label = { Text("Min") },
                         placeholder = { Text("0") },
                         modifier = Modifier.weight(1f),
@@ -465,8 +468,11 @@ fun TransactionsScreen(
                         singleLine = true
                     )
                     OutlinedTextField(
-                        value = maxAmount?.toLong()?.toString() ?: "",
-                        onValueChange = { onMaxAmountChange(it.toDoubleOrNull()) },
+                        value = maxAmount?.toLong()?.let { Formatters.formatNumberWithDots(it.toString()) } ?: "",
+                        onValueChange = { input ->
+                            val cleanDigits = input.filter { it.isDigit() }
+                            onMaxAmountChange(if (cleanDigits.isEmpty()) null else cleanDigits.toDoubleOrNull())
+                        },
                         label = { Text("Maks") },
                         placeholder = { Text("Tanpa batas") },
                         modifier = Modifier.weight(1f),

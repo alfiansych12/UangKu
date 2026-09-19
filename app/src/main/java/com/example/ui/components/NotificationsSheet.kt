@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AddAlert
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ClearAll
 import androidx.compose.material.icons.filled.Close
@@ -25,8 +26,11 @@ import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.NotificationsNone
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -35,11 +39,17 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -62,9 +72,12 @@ fun NotificationsSheet(
     onMarkAllAsRead: () -> Unit,
     onDeleteNotification: (Long) -> Unit,
     onClearAll: () -> Unit,
+    onSendTestNotification: () -> Unit,
+    onCreateCustomNotification: (title: String, message: String, type: String) -> Unit,
     onDismiss: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var showCreateNotificationDialog by remember { mutableStateOf(false) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -120,6 +133,42 @@ fun NotificationsSheet(
 
                 IconButton(onClick = onDismiss) {
                     Icon(imageVector = Icons.Default.Close, contentDescription = "Tutup")
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Action Row: Create Notification + Test Notification Trigger
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Button(
+                    onClick = { showCreateNotificationDialog = true },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AddAlert,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Buat Notif Baru", fontSize = 12.sp)
+                }
+
+                OutlinedButton(
+                    onClick = onSendTestNotification,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.NotificationsActive,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Uji Status Bar", fontSize = 12.sp)
                 }
             }
 
@@ -193,7 +242,7 @@ fun NotificationsSheet(
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "Peringatan anggaran dan info sistem akan muncul di sini.",
+                            text = "Klik 'Buat Notif Baru' atau 'Uji Status Bar' untuk memicu notifikasi ke HP Anda.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -216,6 +265,109 @@ fun NotificationsSheet(
                 }
             }
         }
+    }
+
+    // Create Custom Notification Dialog
+    if (showCreateNotificationDialog) {
+        var notifTitle by remember { mutableStateOf("") }
+        var notifMessage by remember { mutableStateOf("") }
+        var selectedType by remember { mutableStateOf("RECURRING_REMINDER") }
+
+        AlertDialog(
+            onDismissRequest = { showCreateNotificationDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.AddAlert,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Buat Notifikasi Baru")
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = "Notifikasi ini akan langsung dikirimkan ke status bar ponsel dan tercatat di riwayat kotak masuk.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    OutlinedTextField(
+                        value = notifTitle,
+                        onValueChange = { notifTitle = it },
+                        label = { Text("Judul Notifikasi") },
+                        placeholder = { Text("Contoh: 📅 Tagihan Wifi Jatuh Tempo") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    OutlinedTextField(
+                        value = notifMessage,
+                        onValueChange = { notifMessage = it },
+                        label = { Text("Isi Pesan") },
+                        placeholder = { Text("Contoh: Jangan lupa bayar tagihan IndiHome sebelum tanggal 20!") },
+                        maxLines = 3,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Text(
+                        text = "Tipe Peringatan:",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        val types = listOf(
+                            "Tagihan" to "RECURRING_REMINDER",
+                            "Anggaran" to "BUDGET_ALERT",
+                            "Umum" to "GENERAL"
+                        )
+                        types.forEach { (label, typeKey) ->
+                            val isSelected = selectedType == typeKey
+                            OutlinedButton(
+                                onClick = { selectedType = typeKey },
+                                modifier = Modifier.weight(1f),
+                                colors = if (isSelected) {
+                                    androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
+                                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                                    )
+                                } else androidx.compose.material3.ButtonDefaults.outlinedButtonColors(),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Text(
+                                    text = label,
+                                    fontSize = 11.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (notifTitle.isNotBlank() && notifMessage.isNotBlank()) {
+                            onCreateCustomNotification(notifTitle, notifMessage, selectedType)
+                            showCreateNotificationDialog = false
+                        }
+                    },
+                    enabled = notifTitle.isNotBlank() && notifMessage.isNotBlank()
+                ) {
+                    Text("Kirim Sekarang")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCreateNotificationDialog = false }) {
+                    Text("Batal")
+                }
+            }
+        )
     }
 }
 
