@@ -33,30 +33,7 @@ jobs:
 
           # 1. Provide placeholder google-services.json if not present
           if [ ! -f "app/google-services.json" ]; then
-            cat > app/google-services.json <<'JSON'
-            {
-              "project_info": {
-                "project_number": "0",
-                "project_id": "dummy",
-                "storage_bucket": "dummy.appspot.com"
-              },
-              "client": [
-                {
-                  "client_info": {
-                    "mobilesdk_app_id": "1:0:android:0",
-                    "android_client_info": {
-                      "package_name": "com.aistudio.uangku.tracker"
-                    }
-                  },
-                  "api_key": [
-                    {
-                      "current_key": "dummy"
-                    }
-                  ]
-                }
-              ]
-            }
-          JSON
+            echo '{"project_info":{"project_number":"0","project_id":"dummy","storage_bucket":"dummy.appspot.com"},"client":[{"client_info":{"mobilesdk_app_id":"1:0:android:0","android_client_info":{"package_name":"com.aistudio.uangku.tracker"}},"api_key":[{"current_key":"dummy"}]}]}' > app/google-services.json
           fi
 
           # 2. Provide .env from secrets and fallback to .env.example
@@ -106,13 +83,11 @@ jobs:
 
           # Output summary to GitHub Actions Run Page
           if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
-            cat >> $GITHUB_STEP_SUMMARY <<EOF
-### 🔐 SHA-1 & SHA-256 Keystore Fingerprint (Tetap / Permanent)
-Gunakan nilai berikut di **Google Cloud Console -> Credentials -> Android Client ID**:
-- **Package Name:** \`com.aistudio.uangku.tracker\`
-- **SHA-1:** \`$SHA1_FP\`
-- **SHA-256:** \`$SHA256_FP\`
-EOF
+            echo "### 🔐 SHA-1 & SHA-256 Keystore Fingerprint (Tetap / Permanent)" >> "$GITHUB_STEP_SUMMARY"
+            echo "Gunakan nilai berikut di **Google Cloud Console -> Credentials -> Android Client ID**:" >> "$GITHUB_STEP_SUMMARY"
+            echo "- **Package Name:** \`com.aistudio.uangku.tracker\`" >> "$GITHUB_STEP_SUMMARY"
+            echo "- **SHA-1:** \`$SHA1_FP\`" >> "$GITHUB_STEP_SUMMARY"
+            echo "- **SHA-256:** \`$SHA256_FP\`" >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - name: Ensure Gradle Wrapper Executable
