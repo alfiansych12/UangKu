@@ -282,8 +282,8 @@ fun UangKuApp(viewModel: UangKuViewModel) {
                                     onAddGoal = { title, amt, date, icon, col, notes ->
                                         viewModel.addSavingsGoal(title, amt, date, icon, col, notes)
                                     },
-                                    onContribute = { goalId, walletId, amt, title ->
-                                        viewModel.contributeToGoal(goalId, walletId, amt, title)
+                                    onContribute = { goalId, walletId, amt, title, isSynced ->
+                                        viewModel.contributeToGoal(goalId, walletId, amt, title, isSynced)
                                     },
                                     onDeleteGoal = { goalId ->
                                         viewModel.deleteSavingsGoal(goalId)

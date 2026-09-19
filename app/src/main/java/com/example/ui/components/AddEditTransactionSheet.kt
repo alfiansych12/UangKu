@@ -68,6 +68,9 @@ import com.example.ui.theme.TransferBlue
 import com.example.ui.util.Formatters
 import java.io.File
 
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenuItem
@@ -101,16 +104,6 @@ fun AddEditTransactionSheet(
     ) -> Unit,
     onDismiss: () -> Unit
 ) {
-    // Prevent accidental swipe dismissal so data entered is never lost
-    val sheetState = rememberModalBottomSheetState(
-        skipPartiallyExpanded = true,
-        confirmValueChange = { newState ->
-            newState != SheetValue.Hidden
-        }
-    )
-
-    var showCancelConfirmDialog by remember { mutableStateOf(false) }
-
     var transactionType by remember {
         mutableStateOf(
             existingTransaction?.type ?: if (initialReceiptData != null) "EXPENSE" else "EXPENSE"
@@ -137,6 +130,31 @@ fun AddEditTransactionSheet(
             existingTransaction?.notes ?: initialReceiptData?.notes ?: ""
         )
     }
+
+    var gestureStartTime by remember { mutableLongStateOf(0L) }
+    var lastGestureDuration by remember { mutableLongStateOf(0L) }
+
+    // Allow swipe down dismissal if gesture is sustained (~1 second) or fields are blank,
+    // but reject quick accidental flicks under 1 second (< 800ms) to protect user input.
+    val sheetState = rememberModalBottomSheetState(
+        skipPartiallyExpanded = true,
+        confirmValueChange = { newState ->
+            if (newState == SheetValue.Hidden) {
+                val currentDuration = if (gestureStartTime > 0L) {
+                    System.currentTimeMillis() - gestureStartTime
+                } else {
+                    lastGestureDuration
+                }
+                // Allow dismiss if sustained pull down >= 800ms (~1 second) OR no input has been entered
+                val isFieldsEmpty = amountText.isBlank() && titleText.isBlank() && notesText.isBlank()
+                isFieldsEmpty || currentDuration >= 800L
+            } else {
+                true
+            }
+        }
+    )
+
+    var showCancelConfirmDialog by remember { mutableStateOf(false) }
 
     var merchantText by remember {
         mutableStateOf(
@@ -193,11 +211,51 @@ fun AddEditTransactionSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        dragHandle = {
+            BottomSheetDefaults.DragHandle(
+                modifier = Modifier.pointerInput(Unit) {
+                    awaitPointerEventScope {
+                        while (true) {
+                            val event = awaitPointerEvent(PointerEventPass.Initial)
+                            val anyPressed = event.changes.any { it.pressed }
+                            if (anyPressed) {
+                                if (gestureStartTime == 0L) {
+                                    gestureStartTime = System.currentTimeMillis()
+                                }
+                            } else {
+                                if (gestureStartTime > 0L) {
+                                    lastGestureDuration = System.currentTimeMillis() - gestureStartTime
+                                }
+                                gestureStartTime = 0L
+                            }
+                        }
+                    }
+                }
+            )
+        }
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .pointerInput(Unit) {
+                    awaitPointerEventScope {
+                        while (true) {
+                            val event = awaitPointerEvent(PointerEventPass.Initial)
+                            val anyPressed = event.changes.any { it.pressed }
+                            if (anyPressed) {
+                                if (gestureStartTime == 0L) {
+                                    gestureStartTime = System.currentTimeMillis()
+                                }
+                            } else {
+                                if (gestureStartTime > 0L) {
+                                    lastGestureDuration = System.currentTimeMillis() - gestureStartTime
+                                }
+                                gestureStartTime = 0L
+                            }
+                        }
+                    }
+                }
                 .padding(horizontal = 20.dp)
                 .padding(bottom = 32.dp)
                 .verticalScroll(rememberScrollState())

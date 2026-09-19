@@ -883,9 +883,9 @@ class UangKuViewModel(
         }
     }
 
-    fun contributeToGoal(goalId: Long, fromWalletId: Long, amount: Double, goalTitle: String) {
+    fun contributeToGoal(goalId: Long, fromWalletId: Long, amount: Double, goalTitle: String, isSynced: Boolean = true) {
         viewModelScope.launch {
-            repository.addSavingsContribution(goalId, fromWalletId, amount, goalTitle)
+            repository.addSavingsContribution(goalId, fromWalletId, amount, goalTitle, isSynced)
         }
     }
 

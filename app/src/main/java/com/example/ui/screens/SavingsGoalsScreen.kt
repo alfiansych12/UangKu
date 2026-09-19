@@ -35,6 +35,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -63,12 +64,13 @@ fun SavingsGoalsScreen(
     goals: List<SavingsGoalEntity>,
     wallets: List<WalletEntity>,
     onAddGoal: (title: String, targetAmount: Double, targetDateMillis: Long, iconName: String, colorHex: String, notes: String) -> Unit,
-    onContribute: (goalId: Long, fromWalletId: Long, amount: Double, goalTitle: String) -> Unit,
+    onContribute: (goalId: Long, fromWalletId: Long, amount: Double, goalTitle: String, isSynced: Boolean) -> Unit,
     onDeleteGoal: (goalId: Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
     var contributingGoal by remember { mutableStateOf<SavingsGoalEntity?>(null) }
+    var isSyncedWithFinance by remember { mutableStateOf(true) }
 
     Box(modifier = modifier.fillMaxSize()) {
         LazyColumn(
@@ -91,6 +93,49 @@ fun SavingsGoalsScreen(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                Spacer(modifier = Modifier.height(12.dp))
+                // Sync with Finance Toggle Card
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), RoundedCornerShape(16.dp)),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
+                    shape = RoundedCornerShape(16.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Sinkron dengan Keuangan",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = if (isSyncedWithFinance)
+                                    "Setoran mengurangi saldo dompet & tercatat sebagai pengeluaran bersih."
+                                else
+                                    "Setoran tabungan mandiri (terpisah dari saldo bersih dompet).",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Switch(
+                            checked = isSyncedWithFinance,
+                            onCheckedChange = { isSyncedWithFinance = it },
+                            modifier = Modifier.testTag("switch_savings_sync")
+                        )
+                    }
+                }
             }
 
             if (goals.isEmpty()) {
@@ -415,7 +460,7 @@ fun SavingsGoalsScreen(
                     onClick = {
                         val amt = Formatters.parseAmount(contributeAmountText)
                         if (amt > 0) {
-                            onContribute(goal.id, selectedWalletId, amt, goal.title)
+                            onContribute(goal.id, selectedWalletId, amt, goal.title, isSyncedWithFinance)
                             contributingGoal = null
                         }
                     },

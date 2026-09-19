@@ -189,20 +189,23 @@ class UangKuRepository(private val dao: AppDao) {
         goalId: Long,
         fromWalletId: Long,
         amount: Double,
-        goalTitle: String
+        goalTitle: String,
+        isSynced: Boolean = true
     ) {
         dao.addSavingsContribution(goalId, amount)
-        // Record as expense/transfer from wallet
-        val tx = TransactionEntity(
-            title = "Nabung: $goalTitle",
-            amount = amount,
-            type = "EXPENSE",
-            categoryId = 11, // Investasi / Tabungan
-            walletId = fromWalletId,
-            dateMillis = System.currentTimeMillis(),
-            notes = "Setoran target tabungan $goalTitle"
-        )
-        insertTransaction(tx)
+        if (isSynced) {
+            // Record as expense/transfer from wallet
+            val tx = TransactionEntity(
+                title = "Nabung: $goalTitle",
+                amount = amount,
+                type = "EXPENSE",
+                categoryId = 11, // Investasi / Tabungan
+                walletId = fromWalletId,
+                dateMillis = System.currentTimeMillis(),
+                notes = "Setoran target tabungan $goalTitle (Sinkron dengan Keuangan)"
+            )
+            insertTransaction(tx)
+        }
     }
 
     suspend fun processRecurringTransaction(recurring: RecurringTransactionEntity) {

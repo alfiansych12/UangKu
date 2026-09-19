@@ -50,7 +50,7 @@ fun MoreHubScreen(
     onAddWallet: (String, String, Double, String, String) -> Unit,
     onTransfer: (Long, Long, Double, String) -> Unit,
     onAddGoal: (String, Double, Long, String, String, String) -> Unit,
-    onContributeGoal: (Long, Long, Double, String) -> Unit,
+    onContributeGoal: (Long, Long, Double, String, Boolean) -> Unit,
     onDeleteGoal: (Long) -> Unit,
     onAddRecurring: (String, Double, String, Long, Long, String, String) -> Unit,
     onProcessRecurringNow: (RecurringTransactionEntity) -> Unit,
@@ -131,7 +131,7 @@ fun MoreHubScreen(
                 goals = savingsGoals,
                 wallets = wallets,
                 onAddGoal = onAddGoal,
-                onContribute = onContributeGoal,
+                onContribute = { id, wId, amt, title, isSynced -> onContributeGoal(id, wId, amt, title, isSynced) },
                 onDeleteGoal = onDeleteGoal
             )
             2 -> RecurringScreen(
