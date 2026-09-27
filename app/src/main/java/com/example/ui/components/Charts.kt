@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -305,7 +306,50 @@ fun MonthlyTrendsBarChart(
                 }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(14.dp))
+
+            var selectedTrendIndex by remember { mutableStateOf<Int?>(null) }
+            val barAnimProgress = remember { Animatable(0f) }
+            LaunchedEffect(trends) {
+                barAnimProgress.snapTo(0f)
+                barAnimProgress.animateTo(1f, animationSpec = tween(900, easing = androidx.compose.animation.core.EaseOutCubic))
+            }
+
+            val activeTrend = selectedTrendIndex?.let { trends.getOrNull(it) }
+            if (activeTrend != null) {
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = activeTrend.monthName,
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Text(
+                                text = "+${Formatters.formatRupiah(activeTrend.income)}",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = IncomeGreen
+                            )
+                            Text(
+                                text = "-${Formatters.formatRupiah(activeTrend.expense)}",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = ExpenseRed
+                            )
+                        }
+                    }
+                }
+            }
 
             // Bars row
             Row(
@@ -315,14 +359,24 @@ fun MonthlyTrendsBarChart(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Bottom
             ) {
-                trends.forEach { trend ->
+                trends.forEachIndexed { index, trend ->
+                    val isSelected = selectedTrendIndex == index
                     val incomeFraction = (trend.income / maxAmount).toFloat().coerceIn(0.04f, 1f)
                     val expenseFraction = (trend.expense / maxAmount).toFloat().coerceIn(0.04f, 1f)
+
+                    val incomeHeight = (130 * incomeFraction * barAnimProgress.value).coerceAtLeast(4f).dp
+                    val expenseHeight = (130 * expenseFraction * barAnimProgress.value).coerceAtLeast(4f).dp
 
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Bottom,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable {
+                                selectedTrendIndex = if (isSelected) null else index
+                            }
+                            .padding(vertical = 4.dp)
                     ) {
                         Row(
                             horizontalArrangement = Arrangement.Center,
@@ -334,8 +388,8 @@ fun MonthlyTrendsBarChart(
                             // Income Bar
                             Box(
                                 modifier = Modifier
-                                    .width(10.dp)
-                                    .height((130 * incomeFraction).dp)
+                                    .width(if (isSelected) 12.dp else 10.dp)
+                                    .height(incomeHeight)
                                     .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
                                     .background(IncomeGreen)
                             )
@@ -343,8 +397,8 @@ fun MonthlyTrendsBarChart(
                             // Expense Bar
                             Box(
                                 modifier = Modifier
-                                    .width(10.dp)
-                                    .height((130 * expenseFraction).dp)
+                                    .width(if (isSelected) 12.dp else 10.dp)
+                                    .height(expenseHeight)
                                     .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
                                     .background(ExpenseRed)
                             )
@@ -355,7 +409,8 @@ fun MonthlyTrendsBarChart(
                         Text(
                             text = trend.monthName,
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 11.sp
                         )
                     }

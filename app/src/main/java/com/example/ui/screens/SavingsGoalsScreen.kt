@@ -143,27 +143,47 @@ fun SavingsGoalsScreen(
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(18.dp))
-                            .border(
-                                1.dp,
-                                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
-                                RoundedCornerShape(18.dp)
-                            ),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        shape = RoundedCornerShape(18.dp),
+                            .clip(RoundedCornerShape(20.dp)),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)),
+                        shape = RoundedCornerShape(20.dp),
                         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                     ) {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(36.dp),
+                                .padding(vertical = 36.dp, horizontal = 24.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                text = "Belum ada target tabungan. Tekan + untuk membuat target!",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(54.dp)
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Savings,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(28.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(
+                                    text = "Mulai impian pertamamu! ✨",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Tetapkan target tabungan untuk gadget idaman, liburan, atau dana darurat.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                )
+                            }
                         }
                     }
                 }
@@ -174,15 +194,22 @@ fun SavingsGoalsScreen(
                     else 0f
                     val isCompleted = goal.currentAmount >= goal.targetAmount
                     val goalColor = Formatters.parseColor(goal.colorHex)
+                    val activeColor = if (isCompleted) Color(0xFFFFB300) else goalColor
+
+                    val animatedProgress by androidx.compose.animation.core.animateFloatAsState(
+                        targetValue = progress,
+                        animationSpec = androidx.compose.animation.core.tween(durationMillis = 800, easing = androidx.compose.animation.core.EaseOutExpo),
+                        label = "GoalProgressAnim"
+                    )
 
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(20.dp))
                             .border(
-                                1.dp,
-                                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-                                RoundedCornerShape(20.dp)
+                                width = if (isCompleted) 1.5.dp else 1.dp,
+                                color = if (isCompleted) Color(0xFFFFB300).copy(alpha = 0.7f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                                shape = RoundedCornerShape(20.dp)
                             )
                             .testTag("savings_goal_item_${goal.id}"),
                         shape = RoundedCornerShape(20.dp),
@@ -203,13 +230,13 @@ fun SavingsGoalsScreen(
                                         modifier = Modifier
                                             .size(44.dp)
                                             .clip(RoundedCornerShape(12.dp))
-                                            .background(goalColor.copy(alpha = 0.15f)),
+                                            .background(activeColor.copy(alpha = 0.15f)),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Icon(
                                             imageVector = Formatters.getCategoryIcon(goal.iconName),
                                             contentDescription = null,
-                                            tint = goalColor,
+                                            tint = activeColor,
                                             modifier = Modifier.size(22.dp)
                                         )
                                     }
@@ -238,23 +265,33 @@ fun SavingsGoalsScreen(
                                     }
                                 }
 
-                                Text(
-                                    text = "${(progress * 100).toInt()}%",
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = if (isCompleted) SafeGreen else goalColor
-                                )
+                                Column(horizontalAlignment = Alignment.End) {
+                                    Text(
+                                        text = "${(animatedProgress * 100).toInt()}%",
+                                        style = MaterialTheme.typography.titleLarge,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = activeColor
+                                    )
+                                    if (isCompleted) {
+                                        Text(
+                                            text = "Tercapai! 🏆",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color(0xFFFFB300)
+                                        )
+                                    }
+                                }
                             }
 
                             Spacer(modifier = Modifier.height(14.dp))
 
                             LinearProgressIndicator(
-                                progress = { progress },
+                                progress = { animatedProgress },
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(8.dp)
                                     .clip(RoundedCornerShape(4.dp)),
-                                color = if (isCompleted) SafeGreen else goalColor,
+                                color = activeColor,
                                 trackColor = MaterialTheme.colorScheme.surfaceVariant
                             )
 

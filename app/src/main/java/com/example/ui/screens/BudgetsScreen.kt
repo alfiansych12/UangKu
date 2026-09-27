@@ -1,5 +1,7 @@
 package com.example.ui.screens
 
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,6 +25,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material.icons.filled.PriceCheck
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -184,27 +187,47 @@ fun BudgetsScreen(
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(18.dp))
-                            .border(
-                                1.dp,
-                                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
-                                RoundedCornerShape(18.dp)
-                            ),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        shape = RoundedCornerShape(18.dp),
+                            .clip(RoundedCornerShape(20.dp)),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)),
+                        shape = RoundedCornerShape(20.dp),
                         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                     ) {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(36.dp),
+                                .padding(vertical = 36.dp, horizontal = 24.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                text = "Belum ada anggaran yang disetel. Klik tombol + di bawah!",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(54.dp)
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.PriceCheck,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(28.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(
+                                    text = "Belum ada anggaran bulanan 🎯",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Tetapkan batas disiplin belanja per kategori dengan tombol + di bawah!",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                )
+                            }
                         }
                     }
                 }
@@ -216,19 +239,36 @@ fun BudgetsScreen(
                         else -> SafeGreen
                     }
                     val statusText = when {
-                        alert.isExceeded -> "Melebihi Batas!"
-                        alert.isWarning -> "Peringatan (>80%)"
+                        alert.isExceeded -> "Melebihi Limit! ⚠️"
+                        alert.isWarning -> "Waspada (>80%)"
                         else -> "Aman"
                     }
+
+                    val infinitePulse = androidx.compose.animation.core.rememberInfiniteTransition(label = "WarningPulse")
+                    val pulseAlpha by infinitePulse.animateFloat(
+                        initialValue = 0.6f,
+                        targetValue = 1f,
+                        animationSpec = androidx.compose.animation.core.infiniteRepeatable(
+                            animation = androidx.compose.animation.core.tween<Float>(750, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+                            repeatMode = androidx.compose.animation.core.RepeatMode.Reverse
+                        ),
+                        label = "PulseAlpha"
+                    )
+
+                    val animatedProgress by androidx.compose.animation.core.animateFloatAsState(
+                        targetValue = alert.percentage.coerceIn(0f, 1f),
+                        animationSpec = androidx.compose.animation.core.tween(800, easing = androidx.compose.animation.core.EaseOutExpo),
+                        label = "BudgetProgress"
+                    )
 
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(18.dp))
                             .border(
-                                1.dp,
-                                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
-                                RoundedCornerShape(18.dp)
+                                width = if (alert.isExceeded || alert.isWarning) 1.5.dp else 1.dp,
+                                color = if (alert.isExceeded || alert.isWarning) statusColor.copy(alpha = pulseAlpha) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                                shape = RoundedCornerShape(18.dp)
                             )
                             .testTag("budget_item_${alert.categoryId}"),
                         shape = RoundedCornerShape(18.dp),
@@ -247,7 +287,7 @@ fun BudgetsScreen(
                                         else if (alert.isWarning) Icons.Default.NotificationsActive
                                         else Icons.Default.CheckCircle,
                                         contentDescription = null,
-                                        tint = statusColor,
+                                        tint = if (alert.isExceeded) statusColor.copy(alpha = pulseAlpha) else statusColor,
                                         modifier = Modifier.size(20.dp)
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
@@ -290,7 +330,7 @@ fun BudgetsScreen(
                             Spacer(modifier = Modifier.height(10.dp))
 
                             LinearProgressIndicator(
-                                progress = { alert.percentage.coerceIn(0f, 1f) },
+                                progress = { animatedProgress },
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(7.dp)

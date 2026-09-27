@@ -5,11 +5,13 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.ui.draw.rotate
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -234,6 +236,14 @@ fun UangKuApp(viewModel: UangKuViewModel) {
             floatingActionButton = {
                 // Show Add transaction FAB on Home and Transactions screen when not in sub-screens
                 if (activeSubScreen == null && (currentTab == NavigationTab.HOME || currentTab == NavigationTab.TRANSACTIONS)) {
+                    val fabRotation by androidx.compose.animation.core.animateFloatAsState(
+                        targetValue = if (showAddTransactionSheet) 45f else 0f,
+                        animationSpec = androidx.compose.animation.core.spring(
+                            stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow
+                        ),
+                        label = "FabRotation"
+                    )
+
                     FloatingActionButton(
                         onClick = {
                             editingTransaction = null
@@ -244,7 +254,11 @@ fun UangKuApp(viewModel: UangKuViewModel) {
                         containerColor = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.testTag("fab_add_transaction")
                     ) {
-                        Icon(imageVector = Icons.Default.Add, contentDescription = "Tambah Transaksi")
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = "Tambah Transaksi",
+                            modifier = Modifier.rotate(fabRotation)
+                        )
                     }
                 }
             }
@@ -257,10 +271,57 @@ fun UangKuApp(viewModel: UangKuViewModel) {
                 AnimatedContent(
                     targetState = activeSubScreen to currentTab,
                     transitionSpec = {
-                        (fadeIn() + slideInHorizontally { width -> width / 10 })
-                            .togetherWith(fadeOut() + slideOutHorizontally { width -> -width / 10 })
+                        val (initialSub, initialTab) = initialState
+                        val (targetSub, targetTab) = targetState
+
+                        if (initialSub != targetSub) {
+                            if (targetSub != null) {
+                                // Entering SubScreen: slide up + fade in
+                                (fadeIn(animationSpec = tween(300)) + androidx.compose.animation.slideInVertically(
+                                    animationSpec = tween(350, easing = androidx.compose.animation.core.EaseOutCubic)
+                                ) { it / 6 })
+                                    .togetherWith(
+                                        fadeOut(animationSpec = tween(200)) + androidx.compose.animation.slideOutVertically(
+                                            animationSpec = tween(250)
+                                        ) { -it / 10 }
+                                    )
+                            } else {
+                                // Exiting SubScreen back to main tabs: slide down + fade in
+                                (fadeIn(animationSpec = tween(250)) + androidx.compose.animation.slideInVertically(
+                                    animationSpec = tween(300)
+                                ) { -it / 10 })
+                                    .togetherWith(
+                                        fadeOut(animationSpec = tween(200)) + androidx.compose.animation.slideOutVertically(
+                                            animationSpec = tween(300, easing = androidx.compose.animation.core.EaseInCubic)
+                                        ) { it / 6 }
+                                    )
+                            }
+                        } else {
+                            // Shared Axis Tab Transition (Horizontal slide according to tab order)
+                            val isForward = targetTab.ordinal > initialTab.ordinal
+                            val slideDistance = 140
+                            if (isForward) {
+                                (fadeIn(animationSpec = tween(280)) + slideInHorizontally(
+                                    animationSpec = tween(320, easing = androidx.compose.animation.core.EaseOutCubic)
+                                ) { slideDistance })
+                                    .togetherWith(
+                                        fadeOut(animationSpec = tween(200)) + slideOutHorizontally(
+                                            animationSpec = tween(240)
+                                        ) { -slideDistance / 2 }
+                                    )
+                            } else {
+                                (fadeIn(animationSpec = tween(280)) + slideInHorizontally(
+                                    animationSpec = tween(320, easing = androidx.compose.animation.core.EaseOutCubic)
+                                ) { -slideDistance })
+                                    .togetherWith(
+                                        fadeOut(animationSpec = tween(200)) + slideOutHorizontally(
+                                            animationSpec = tween(240)
+                                        ) { slideDistance / 2 }
+                                    )
+                            }
+                        }
                     },
-                    label = "ScreenTransition"
+                    label = "SharedAxisScreenTransition"
                 ) { (subScreen, tab) ->
                     if (subScreen != null) {
                         when (subScreen) {
